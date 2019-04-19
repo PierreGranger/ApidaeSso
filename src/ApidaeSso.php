@@ -45,6 +45,7 @@ class ApidaeSso {
 	const NO_JSON = 4 ;
 	const NO_RESPONSE = 5 ;
 	const NO_BODY = 6 ;
+	const NOT_CONNECTED = 7 ;
 
 	/** */
 	protected $persist ;
@@ -73,6 +74,14 @@ class ApidaeSso {
 		$this->rutime = Array() ;
 		
 		$this->persist = &$persist ;
+
+		/*
+		if ( $this->connected() )
+		{
+			if ( $this->refreshSsoToken() !== true )
+				$this->logout() ;
+		}
+		*/
 	}
 	
 	/**
@@ -198,6 +207,104 @@ class ApidaeSso {
 		} catch (\Exception $e) {
 			echo '<pre>' ; trigger_error($e,E_USER_ERROR) ; echo '</pre>' ;
 		}
+	}
+
+	/**
+	 * After authentification user is redirected with an additional ?code=XZY Get parameter.
+	 * We need to use it to get a token from SSO API
+	 * @link	http://dev.apidae-tourisme.com/fr/documentation-technique/v2/oauth/single-sign-on
+	 * @param	$code	code given in $_GET['code'] after the user login. User is redirected to $ssoRedirectUrl with this code.
+	 */
+	public function refreshSsoToken($ssoRedirectUrl=null) {
+
+		if ( ! $this->connected() )
+			throw new ApidaeSsoException(curl_error($ch),self::NOT_CONNECTED) ;
+
+		$url = $this->url_api().'/oauth/token' ;
+		$ch = curl_init() ;
+		curl_setopt($ch,CURLOPT_URL, $url);
+		curl_setopt($ch, CURLOPT_HEADER, true);
+		curl_setopt($ch, CURLOPT_VERBOSE, true);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Accept: application/json'));
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); 
+		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); 
+		curl_setopt($ch, CURLOPT_USERPWD, $this->ssoClientId.":".$this->ssoSecret);
+		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout); 
+		curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout); //timeout in seconds
+		$POSTFIELDS = "grant_type=refresh_token&refresh_token=".$this->persist['sso']['refresh_token'].'&redirect_uri='.urlencode($this->genRedirectUrl($ssoRedirectUrl)) ;
+		curl_setopt($ch, CURLOPT_POSTFIELDS,$POSTFIELDS);
+		
+		try {
+			$response = curl_exec($ch);
+		} catch(\Exception $e) {
+			throw new ApidaeSsoException($e->getMessage(),$e->getCode(),null,Array('url',$url,'POSTFIELDS',$POSTFIELDS,'body'=>$body,'header'=>$header)) ;
+		}
+
+		if ( curl_error($ch) )
+			throw new ApidaeSsoException(curl_error($ch),self::NO_RESPONSE) ;
+
+		if ( FALSE === $response )
+			throw new ApidaeSsoException('no response',self::NO_RESPONSE) ;
+
+		try {
+			$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+			$header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+			$header = substr($response, 0, $header_size);
+			$body = substr($response, $header_size);
+
+			if ( FALSE === $body )
+				throw new ApidaeSsoException('no token',self::NO_BODY,null,Array('header'=>$header,'body'=>$body,'httpCode'=>$httpCode)) ;
+			
+			$token_sso = $body ;
+			$token_sso = json_decode($token_sso,true) ;
+
+			if ( json_last_error() !== JSON_ERROR_NONE )
+				throw new ApidaeSsoException('no json',self::NO_JSON,null,$token_sso) ;
+
+			if ( ! isset($token_sso['scope']) )
+			{
+				if ( isset($token_sso['error']) )
+					throw new ApidaeSsoException('no scope',self::NO_SCOPE,null,$token_sso) ;
+				else
+					throw new ApidaeSsoException('no error',self::NO_ERROR,null,$token_sso) ;
+			}
+
+			echo '<pre>'.print_r($token_sso,true).'</pre>' ;
+
+			$this->persist['sso'] = $token_sso ;
+
+
+		} catch (ApidaeSsoException $e) {
+
+			echo '<pre>' ;
+			if ( $this->debug )
+			{
+				$details = $e->getDetails() ;
+				if ( is_array($details) )
+				{
+					echo '[DEBUG ON] details :' ;
+					echo '<ul>' ;
+					foreach ( $details as $k => $v )
+						echo '<li>'.$k.' : '.$v.'</li>' ;
+					echo '</ul>' ;
+				}
+			}
+
+			if ( $e->getCode() == self::NO_SCOPE ) // Todo : show explicit error messages
+			{
+				trigger_error($e,E_USER_ERROR) ;
+			}
+			elseif ( $e->getCode() == self::NO_ERROR ) // Todo : show explicit error messages
+			{
+				trigger_error($e,E_USER_ERROR) ;
+			}
+			echo '</pre>' ;
+		} catch (\Exception $e) {
+			echo '<pre>' ; trigger_error($e,E_USER_ERROR) ; echo '</pre>' ;
+		}
+
+		return true ;
 	}
 
 	/**
