@@ -17,8 +17,8 @@ Copiez ou renommez le fichier `config.sample.php` : `config.inc.php`
 Après avoir créé votre projet SSO sur Apidae vous aurez récupéré les codes suivants à rentrer dans `config.inc.php` :
 
 ```
-	$configApidaeMembres['ssoClientId'] = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeee' ;
-	$configApidaeMembres['ssoSecret'] = 'a1b2c3...' ;
+	$configApidaeSso['ssoClientId'] = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeee' ;
+	$configApidaeSso['ssoSecret'] = 'a1b2c3...' ;
 ```
 
 Créez votre fichier de test (`test.php`...)
@@ -69,6 +69,6 @@ Le suivi de la session est assuré par `$_SESSION['ApidaeSso']` : une fois en pr
 
 Une fois l'utilisateur identifié, vous pourrez avoir des informations le concernant grâce à `getUserProfile()`.
 
-Pour plus de détails sur les droits de l'utilisateur, vous devrez utiliser l'API membres d'Apidae. Cette API ne dispose pas d'une documentation en ligne au 19/04/2019 sur dev.apidae-tourisme.com. Une autre classe permet cependant de s'en servir : https://github.com/PGranger/ApidaeMembres
+Pour plus de détails sur les droits de l'utilisateur, vous devrez utiliser l'[API membres d'Apidae](http://dev.apidae-tourisme.com/fr/documentation-technique/v2/api-de-diffusion/liste-des-services-2#membre). Une autre classe permet de s'en servir : https://github.com/PGranger/ApidaeMembres
 
 Pour plus d'informations : http://dev.apidae-tourisme.com/fr/documentation-technique/v2/oauth/single-sign-on
