@@ -325,6 +325,7 @@ class ApidaeSso {
 			curl_setopt($ch, CURLOPT_HTTPHEADER, array("Authorization: Bearer ".$this->persist['sso']['access_token']));
 			curl_setopt($ch, CURLOPT_URL, $url);
 			curl_setopt($ch, CURLOPT_HEADER, true);
+			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 			curl_setopt($ch, CURLOPT_VERBOSE, true);
 			curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
 			curl_setopt($ch, CURLOPT_ENCODING, 'UTF-8');
