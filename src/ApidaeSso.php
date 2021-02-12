@@ -12,24 +12,10 @@
  * @todo	Use $this->persist['sso']['expires_in'] at login (getSsoToken) to detected when you need to use refresh_token
  * @todo	Implement http://dev.apidae-tourisme.com/fr/documentation-technique/v2/oauth/services-associes-au-sso/v002ssoutilisateurautorisationobjet-touristiquemodification
  */
-class ApidaeSso {
+class ApidaeSso extends ApidaeCore {
   
-	protected static $url_api = Array(
-		'preprod' => 'https://api.apidae-tourisme-recette.accelance.net/',
-		'prod' => 'https://api.apidae-tourisme.com/'
-	) ;
-
-	protected static $url_base = Array(
-		'preprod' => 'https://base.apidae-tourisme-recette.accelance.net/',
-		'prod' => 'https://base.apidae-tourisme.com/'
-	) ;
-
-	protected $type_prod = 'prod' ;
-
     protected $ssoClientId ;
     protected $ssoSecret ;
-
-    protected $debug = false ;
 
     protected $rutime ;
 
@@ -50,7 +36,9 @@ class ApidaeSso {
 	/** */
 	protected $persist ;
 
-    public function __construct($params,&$persist) {
+    public function __construct(array $params,&$persist) {
+
+		parent::__construct($params) ;
 
 		if ( ! isset($params['ssoClientId']) ) throw new \Exception('missing ssoClientId') ;
 		if ( ! preg_match('#^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$#',$params['ssoClientId']) ) throw new \Exception('invalid ssoClientId') ;
@@ -65,23 +53,12 @@ class ApidaeSso {
 
         if ( isset($params['timeout']) && preg_match('#^[0-9]+$#',$params['timeout']) ) $this->timeout = $params['timeout'] ;
 
-		if ( isset($params['type_prod']) && in_array($params['type_prod'],Array('prod','preprod')) ) $this->type_prod = $params['type_prod'] ;
-
-		if ( isset($params['debug']) ) $this->debug = $params['debug'] == true ;
-
 		$this->_config = $params ;
 
 		$this->rutime = Array() ;
 		
 		$this->persist = &$persist ;
 
-		/*
-		if ( $this->connected() )
-		{
-			if ( $this->refreshSsoToken() !== true )
-				$this->logout() ;
-		}
-		*/
 	}
 	
 	/**
@@ -381,16 +358,4 @@ class ApidaeSso {
 		return isset($this->persist['sso']) ;
 	}
 
-	private function url_base() { return self::$url_base[$this->type_prod] ; }
-	private function url_api() { return self::$url_api[$this->type_prod] ; }
-
-    public function ruStart($nom='Time') {
-        $rutime[$nom] = microtime('true') ;
-    }
-
-    public function ruShow($nom='Time') {
-        $execution_time = round( microtime('true') - $this->rutime[$nom],2 ) ;
-        $echo = $nom.' : '.$execution_time.'s' ;
-        echo '<pre style="font-size:0.8em;">'.$echo.'</pre>' ;
-    }
 }
