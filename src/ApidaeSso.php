@@ -17,10 +17,6 @@ class ApidaeSso extends ApidaeCore {
     protected $ssoClientId ;
     protected $ssoSecret ;
 
-    protected $rutime ;
-
-    private $_config ;
-
 	protected $timeout = 15 ; // secondes
 	
 	protected $defaultSsoRedirectUrl ;
@@ -55,8 +51,6 @@ class ApidaeSso extends ApidaeCore {
 
 		$this->_config = $params ;
 
-		$this->rutime = Array() ;
-		
 		$this->persist = &$persist ;
 
 	}
@@ -356,6 +350,111 @@ class ApidaeSso extends ApidaeCore {
 	 */
 	public function connected() {
 		return isset($this->persist['sso']) ;
+	}
+
+	public function form() {
+
+		$html = null ;
+		$html .= '
+		<!doctype html>
+		<html lang="en">
+		<head>
+			<meta charset="utf-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1">
+			<title></title>
+			<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
+			<link rel="icon" href="https://www.apidae-tourisme.com/wp-content/uploads/2017/10/cropped-favicon-50x50.png" sizes="32x32" />
+			<link rel="icon" href="https://www.apidae-tourisme.com/wp-content/uploads/2017/10/cropped-favicon-300x300.png" sizes="192x192" />
+			<link rel="apple-touch-icon-precomposed" href="https://www.apidae-tourisme.com/wp-content/uploads/2017/10/cropped-favicon-300x300.png" />
+			<meta name="msapplication-TileImage" content="https://www.apidae-tourisme.com/wp-content/uploads/2017/10/cropped-favicon-300x300.png" />
+
+
+			<style>
+				.bd-placeholder-img {
+					font-size: 1.125rem;
+					text-anchor: middle;
+					-webkit-user-select: none;
+					-moz-user-select: none;
+					user-select: none;
+				}
+
+				@media (min-width: 768px) {
+					.bd-placeholder-img-lg {
+					font-size: 3.5rem;
+					}
+				}
+				
+				html,
+				body {
+				height: 100%;
+				}
+				
+				body {
+				display: flex;
+				align-items: center;
+				padding-top: 40px;
+				padding-bottom: 40px;
+				background-color: #f5f5f5;
+				}
+				
+				.form-signin {
+				width: 100%;
+				max-width: 330px;
+				padding: 15px;
+				margin: auto;
+				}
+				.form-signin .checkbox {
+				font-weight: 400;
+				}
+				.form-signin .form-control {
+				position: relative;
+				box-sizing: border-box;
+				height: auto;
+				padding: 10px;
+				font-size: 16px;
+				}
+				.form-signin .form-control:focus {
+				z-index: 2;
+				}
+				.form-signin input[type="email"] {
+				margin-bottom: -1px;
+				border-bottom-right-radius: 0;
+				border-bottom-left-radius: 0;
+				}
+				.form-signin input[type="password"] {
+				margin-bottom: 10px;
+				border-top-left-radius: 0;
+				border-top-right-radius: 0;
+				}
+
+			</style>
+
+		</head>
+		<body class="text-center">
+			
+		<main class="form-signin">
+		<form>
+			<img class="mb-4" src="./assets/logo-Apidae-760x350.jpg" alt="" WIDTH="100%" />
+			<h1 class="h3 mb-3 fw-normal">Authentification</h1>
+			<label for="inputEmail" class="visually-hidden">Email address</label>
+			<input type="email" id="inputEmail" class="form-control" placeholder="Email address" required autofocus>
+			<label for="inputPassword" class="visually-hidden">Password</label>
+			<input type="password" id="inputPassword" class="form-control" placeholder="Password" required>
+			<div class="checkbox mb-3">
+			<label>
+				<input type="checkbox" value="remember-me"> Remember me
+			</label>
+			</div>
+			<button class="w-100 btn btn-lg btn-primary" type="submit">Sign in</button>
+			<p class="mt-5 mb-3 text-muted">&copy; 2017–2021</p>
+		</form>
+		</main>
+
+
+			
+		</body>
+		</html>' ;
+		return $html ;
 	}
 
 }
