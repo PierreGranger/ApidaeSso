@@ -352,7 +352,7 @@ class ApidaeSso extends ApidaeCore {
 		return isset($this->persist['sso']) ;
 	}
 
-	public function form() {
+	public function form($title='Authentification') {
 
 		$html = null ;
 		$html .= '
@@ -361,70 +361,49 @@ class ApidaeSso extends ApidaeCore {
 		<head>
 			<meta charset="utf-8">
 			<meta name="viewport" content="width=device-width, initial-scale=1">
-			<title></title>
+			<title>'.htmlentities($title).'</title>
 			<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
-			<link rel="icon" href="https://www.apidae-tourisme.com/wp-content/uploads/2017/10/cropped-favicon-50x50.png" sizes="32x32" />
-			<link rel="icon" href="https://www.apidae-tourisme.com/wp-content/uploads/2017/10/cropped-favicon-300x300.png" sizes="192x192" />
-			<link rel="apple-touch-icon-precomposed" href="https://www.apidae-tourisme.com/wp-content/uploads/2017/10/cropped-favicon-300x300.png" />
-			<meta name="msapplication-TileImage" content="https://www.apidae-tourisme.com/wp-content/uploads/2017/10/cropped-favicon-300x300.png" />
-
+			<link rel="icon" href="https://raw.githubusercontent.com/PierreGranger/ApidaeCore/master/assets/cropped-favicon-50x50.png" sizes="32x32" />
+			<link rel="icon" href="https://raw.githubusercontent.com/PierreGranger/ApidaeCore/master/assets/cropped-favicon-300x300.png" sizes="192x192" />
+			<link rel="apple-touch-icon-precomposed" href="https://raw.githubusercontent.com/PierreGranger/ApidaeCore/master/assets/cropped-favicon-300x300.png" />
+			<meta name="msapplication-TileImage" content="https://raw.githubusercontent.com/PierreGranger/ApidaeCore/master/assets/cropped-favicon-300x300.png" />
+			<link rel="preconnect" href="https://fonts.gstatic.com">
+			<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300&display=swap" rel="stylesheet">
 
 			<style>
-				.bd-placeholder-img {
-					font-size: 1.125rem;
-					text-anchor: middle;
-					-webkit-user-select: none;
-					-moz-user-select: none;
-					user-select: none;
-				}
-
-				@media (min-width: 768px) {
-					.bd-placeholder-img-lg {
-					font-size: 3.5rem;
-					}
-				}
 				
 				html,
 				body {
-				height: 100%;
+					height: 100%;
+					font-family:"Open Sans" ;
 				}
 				
 				body {
-				display: flex;
-				align-items: center;
-				padding-top: 40px;
-				padding-bottom: 40px;
-				background-color: #f5f5f5;
+					display: flex;
+					align-items: center;
+					padding-top: 40px;
+					padding-bottom: 40px;
+					background-color: #eeeeee;
 				}
 				
 				.form-signin {
-				width: 100%;
-				max-width: 330px;
-				padding: 15px;
-				margin: auto;
+					width: 100%;
+					max-width: 530px;
+					padding: 25px;
+					margin: auto;
+					background:#FFF ;
+					box-shadow: 0 0 10px 3px #ddd !important;
 				}
-				.form-signin .checkbox {
-				font-weight: 400;
+
+				.btn-sso {
+					background: rgb(223, 123, 123) ;
+					color:white ;
+					font-size:.9em ;
+					padding-left:30px ;
+					padding-right:30px ;
 				}
-				.form-signin .form-control {
-				position: relative;
-				box-sizing: border-box;
-				height: auto;
-				padding: 10px;
-				font-size: 16px;
-				}
-				.form-signin .form-control:focus {
-				z-index: 2;
-				}
-				.form-signin input[type="email"] {
-				margin-bottom: -1px;
-				border-bottom-right-radius: 0;
-				border-bottom-left-radius: 0;
-				}
-				.form-signin input[type="password"] {
-				margin-bottom: 10px;
-				border-top-left-radius: 0;
-				border-top-right-radius: 0;
+				.btn-sso>img {
+					margin-right:15px ;
 				}
 
 			</style>
@@ -434,19 +413,9 @@ class ApidaeSso extends ApidaeCore {
 			
 		<main class="form-signin">
 		<form>
-			<img class="mb-4" src="./assets/logo-Apidae-760x350.jpg" alt="" WIDTH="100%" />
-			<h1 class="h3 mb-3 fw-normal">Authentification</h1>
-			<label for="inputEmail" class="visually-hidden">Email address</label>
-			<input type="email" id="inputEmail" class="form-control" placeholder="Email address" required autofocus>
-			<label for="inputPassword" class="visually-hidden">Password</label>
-			<input type="password" id="inputPassword" class="form-control" placeholder="Password" required>
-			<div class="checkbox mb-3">
-			<label>
-				<input type="checkbox" value="remember-me"> Remember me
-			</label>
-			</div>
-			<button class="w-100 btn btn-lg btn-primary" type="submit">Sign in</button>
-			<p class="mt-5 mb-3 text-muted">&copy; 2017–2021</p>
+			<img class="mb-4" src="https://raw.githubusercontent.com/PierreGranger/ApidaeCore/master/assets/apidae_logotype_rvb.png" alt="" width="50%" />
+			<h1 class="h3 mb-3 fw-normal">'.htmlentities($title).'</h1>
+			<a href="'.$this->getSsoUrl().'" class="btn btn-sso" type="submit"><img src="https://raw.githubusercontent.com/PierreGranger/ApidaeCore/master/assets/cropped-favicon-50x50.png" width="20" alt="" /> Se connecter avec mon compte utilisateur Apidae</a>
 		</form>
 		</main>
 
