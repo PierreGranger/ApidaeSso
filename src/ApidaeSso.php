@@ -2,8 +2,6 @@
 
 	nameSpace PierreGranger ;
 
-	use PierreGranger\ApidaeSsoException ;
-
 /**
  * 
  * @author	Pierre Granger	<pierre@pierre-granger.fr>
@@ -17,17 +15,7 @@ class ApidaeSso extends ApidaeCore {
     protected $ssoClientId ;
     protected $ssoSecret ;
 
-	protected $timeout = 15 ; // secondes
-	
 	protected $defaultSsoRedirectUrl ;
-
-    const NO_TOKEN = 1 ;
-    const NO_SCOPE = 2 ;
-	const NO_ERROR = 3 ;
-	const NO_JSON = 4 ;
-	const NO_RESPONSE = 5 ;
-	const NO_BODY = 6 ;
-	const NOT_CONNECTED = 7 ;
 
 	/** */
 	protected $persist ;
@@ -36,12 +24,12 @@ class ApidaeSso extends ApidaeCore {
 
 		parent::__construct($params) ;
 
-		if ( ! isset($params['ssoClientId']) ) throw new \Exception('missing ssoClientId') ;
+		if ( ! isset($params['ssoClientId']) ) throw new ApidaeException('missing ssoClientId') ;
 		if ( ! preg_match('#^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$#',$params['ssoClientId']) ) throw new \Exception('invalid ssoClientId') ;
 		$this->ssoClientId = $params['ssoClientId'] ;
 			
-		if ( ! isset($params['ssoSecret']) ) throw new \Exception('missing ssoSecret') ;
-		if ( ! preg_match('#^[a-zA-Z0-9]{1,20}$#',$params['ssoSecret']) ) throw new \Exception('invalid ssoSecret') ;
+		if ( ! isset($params['ssoSecret']) ) throw new ApidaeException(ApidaeException::MISSING_PARAMETER) ;
+		if ( ! preg_match('#^[a-zA-Z0-9]{1,20}$#',$params['ssoSecret']) ) throw new ApidaeException(ApidaeException::INVALID_PARAMETER) ;
 		$this->ssoSecret = $params['ssoSecret'] ;
 
 		//if ( ! isset($params['defaultSsoRedirectUrl']) ) throw new \Exception('missing defaultSsoRedirectUrl') ;
@@ -97,87 +85,26 @@ class ApidaeSso extends ApidaeCore {
 	 * @param	$code	code given in $_GET['code'] after the user login. User is redirected to $ssoRedirectUrl with this code.
 	 */
 	public function getSsoToken($code,$ssoRedirectUrl=null) {
-		$url = $this->url_api().'/oauth/token' ;
-		$ch = curl_init() ;
-		curl_setopt($ch,CURLOPT_URL, $url);
-		curl_setopt($ch, CURLOPT_HEADER, true);
-		curl_setopt($ch, CURLOPT_VERBOSE, true);
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Accept: application/json'));
-		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); 
-		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); 
-		curl_setopt($ch, CURLOPT_USERPWD, $this->ssoClientId.":".$this->ssoSecret);
-		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout); 
-		curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout); //timeout in seconds
-		$POSTFIELDS = "grant_type=authorization_code&code=".$code.'&redirect_uri='.urlencode($this->genRedirectUrl($ssoRedirectUrl)) ;
-		curl_setopt($ch, CURLOPT_POSTFIELDS,$POSTFIELDS);
 		
-		try {
-			$response = curl_exec($ch);
-		} catch(\Exception $e) {
-			throw new ApidaeSsoException($e->getMessage(),$e->getCode(),null,Array('url',$url,'POSTFIELDS',$POSTFIELDS,'body'=>$body,'header'=>$header)) ;
+		$result = $this->request('/oauth/token',Array(
+			'USERPWD' => $this->ssoClientId.":".$this->ssoSecret,
+			'POSTFIELDS' => "grant_type=authorization_code&code=".$code.'&redirect_uri='.urlencode($this->genRedirectUrl($ssoRedirectUrl)),
+			'format' => 'json'
+		)) ;
+		
+		$token_sso = $result['array'] ;
+		
+		if ( ! isset($token_sso['scope']) )
+		{
+			throw new ApidaeException('no scope',ApidaeException::NO_SCOPE,Array(
+				'debug' => $this->debug,
+				'token_sso' => $token_sso
+			)) ;
 		}
 
-		if ( curl_error($ch) )
-			throw new ApidaeSsoException(curl_error($ch),self::NO_RESPONSE) ;
+		$this->persist['sso'] = $token_sso ;
 
-		if ( FALSE === $response )
-			throw new ApidaeSsoException('no response',self::NO_RESPONSE) ;
-
-		try {
-			$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-			$header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-			$header = substr($response, 0, $header_size);
-			$body = substr($response, $header_size);
-
-			if ( FALSE === $body )
-				throw new ApidaeSsoException('no token',self::NO_BODY,null,Array('header'=>$header,'body'=>$body,'httpCode'=>$httpCode)) ;
-			
-			$token_sso = $body ;
-			$token_sso = json_decode($token_sso,true) ;
-
-			if ( json_last_error() !== JSON_ERROR_NONE )
-				throw new ApidaeSsoException('no json',self::NO_JSON,null,$token_sso) ;
-
-			if ( ! isset($token_sso['scope']) )
-			{
-				if ( isset($token_sso['error']) )
-					throw new ApidaeSsoException('no scope',self::NO_SCOPE,null,$token_sso) ;
-				else
-					throw new ApidaeSsoException('no error',self::NO_ERROR,null,$token_sso) ;
-			}
-
-			$this->persist['sso'] = $token_sso ;
-
-
-		} catch (ApidaeSsoException $e) {
-
-			echo '<pre>' ;
-			if ( $this->debug )
-			{
-				$details = $e->getDetails() ;
-				if ( is_array($details) )
-				{
-					echo '[DEBUG ON] details :' ;
-					echo '<ul>' ;
-					foreach ( $details as $k => $v )
-						echo '<li>'.$k.' : '.$v.'</li>' ;
-					echo '</ul>' ;
-				}
-			}
-
-			if ( $e->getCode() == self::NO_SCOPE ) // Todo : show explicit error messages
-			{
-				trigger_error($e,E_USER_ERROR) ;
-			}
-			elseif ( $e->getCode() == self::NO_ERROR ) // Todo : show explicit error messages
-			{
-				trigger_error($e,E_USER_ERROR) ;
-			}
-			echo '</pre>' ;
-		} catch (\Exception $e) {
-			echo '<pre>' ; trigger_error($e,E_USER_ERROR) ; echo '</pre>' ;
-		}
+		return $token_sso ;
 	}
 
 	/**
@@ -189,151 +116,87 @@ class ApidaeSso extends ApidaeCore {
 	public function refreshSsoToken($ssoRedirectUrl=null) {
 
 		if ( ! $this->connected() )
-			throw new ApidaeSsoException(curl_error($ch),self::NOT_CONNECTED) ;
+			throw new ApidaeException(curl_error($ch),ApidaeException::NOT_CONNECTED) ;
 
-		$url = $this->url_api().'/oauth/token' ;
-		$ch = curl_init() ;
-		curl_setopt($ch,CURLOPT_URL, $url);
-		curl_setopt($ch, CURLOPT_HEADER, true);
-		curl_setopt($ch, CURLOPT_VERBOSE, true);
-		curl_setopt($ch, CURLOPT_HTTPHEADER, array('Accept: application/json'));
-		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); 
-		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); 
-		curl_setopt($ch, CURLOPT_USERPWD, $this->ssoClientId.":".$this->ssoSecret);
-		curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout); 
-		curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout); //timeout in seconds
-		$POSTFIELDS = "grant_type=refresh_token&refresh_token=".$this->persist['sso']['refresh_token'].'&redirect_uri='.urlencode($this->genRedirectUrl($ssoRedirectUrl)) ;
-		curl_setopt($ch, CURLOPT_POSTFIELDS,$POSTFIELDS);
+		$result = $this->request('/oauth/token',Array(
+			'USERPWD' => $this->ssoClientId.":".$this->ssoSecret,
+			'POSTFIELDS' => "grant_type=refresh_token&refresh_token=".$this->persist['sso']['refresh_token'].'&redirect_uri='.urlencode($this->genRedirectUrl($ssoRedirectUrl)),
+			'format' => 'json'
+		)) ;
 		
-		try {
-			$response = curl_exec($ch);
-		} catch(\Exception $e) {
-			throw new ApidaeSsoException($e->getMessage(),$e->getCode(),null,Array('url',$url,'POSTFIELDS',$POSTFIELDS,'body'=>$body,'header'=>$header)) ;
+		$token_sso = $result['array'] ;
+
+		if ( ! isset($token_sso['scope']) )
+		{
+			throw new ApidaeException('no scope',ApidaeException::NO_SCOPE,Array(
+				'debug' => $this->debug,
+				'token_sso' => $token_sso
+			)) ;
 		}
 
-		if ( curl_error($ch) )
-			throw new ApidaeSsoException(curl_error($ch),self::NO_RESPONSE) ;
+		$this->persist['sso'] = $token_sso ;
 
-		if ( FALSE === $response )
-			throw new ApidaeSsoException('no response',self::NO_RESPONSE) ;
-
-		try {
-			$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-			$header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-			$header = substr($response, 0, $header_size);
-			$body = substr($response, $header_size);
-
-			if ( FALSE === $body )
-				throw new ApidaeSsoException('no token',self::NO_BODY,null,Array('header'=>$header,'body'=>$body,'httpCode'=>$httpCode)) ;
-			
-			$token_sso = $body ;
-			$token_sso = json_decode($token_sso,true) ;
-
-			if ( json_last_error() !== JSON_ERROR_NONE )
-				throw new ApidaeSsoException('no json',self::NO_JSON,null,$token_sso) ;
-
-			if ( ! isset($token_sso['scope']) )
-			{
-				if ( isset($token_sso['error']) )
-					throw new ApidaeSsoException('no scope',self::NO_SCOPE,null,$token_sso) ;
-				else
-					throw new ApidaeSsoException('no error',self::NO_ERROR,null,$token_sso) ;
-			}
-
-			echo '<pre>'.print_r($token_sso,true).'</pre>' ;
-
-			$this->persist['sso'] = $token_sso ;
-
-
-		} catch (ApidaeSsoException $e) {
-
-			echo '<pre>' ;
-			if ( $this->debug )
-			{
-				$details = $e->getDetails() ;
-				if ( is_array($details) )
-				{
-					echo '[DEBUG ON] details :' ;
-					echo '<ul>' ;
-					foreach ( $details as $k => $v )
-						echo '<li>'.$k.' : '.$v.'</li>' ;
-					echo '</ul>' ;
-				}
-			}
-
-			if ( $e->getCode() == self::NO_SCOPE ) // Todo : show explicit error messages
-			{
-				trigger_error($e,E_USER_ERROR) ;
-			}
-			elseif ( $e->getCode() == self::NO_ERROR ) // Todo : show explicit error messages
-			{
-				trigger_error($e,E_USER_ERROR) ;
-			}
-			echo '</pre>' ;
-		} catch (\Exception $e) {
-			echo '<pre>' ; trigger_error($e,E_USER_ERROR) ; echo '</pre>' ;
-		}
-
-		return true ;
+		return $token_sso ;
 	}
 
 	/**
 	 * get connected user profil as an array.
 	 * @link	http://dev.apidae-tourisme.com/fr/documentation-technique/v2/oauth/services-associes-au-sso/v002ssoutilisateurprofil
+	 * @param	boolean	$force	Force refresh, default false. 
 	 */
-	public function getUserProfile() {
+	public function getUserProfile($force=false) {
 		
 		if ( ! $this->connected() ) return false ;
 
 		$userprofile = false ;
 
-		if ( isset($this->persist['user']) ) $userprofile = $this->persist['user'] ;
+		if ( isset($this->persist['user']) && ! $force )
+			$userprofile = $this->persist['user'] ;
 		else
 		{
-			$url = $this->url_base()."/api/v002/sso/utilisateur/profil" ;
-			$ch = curl_init();
-			curl_setopt($ch, CURLOPT_HTTPHEADER, array("Authorization: Bearer ".$this->persist['sso']['access_token']));
-			curl_setopt($ch, CURLOPT_URL, $url);
-			curl_setopt($ch, CURLOPT_HEADER, true);
-			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-			curl_setopt($ch, CURLOPT_VERBOSE, true);
-			curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "GET");
-			curl_setopt($ch, CURLOPT_ENCODING, 'UTF-8');
-			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-			curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); 
-			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->timeout); 
-			curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout);
+			$result = $this->request('/api/v002/sso/utilisateur/profil',Array(
+				'token' => $this->persist['sso']['access_token'],
+				'format' => 'json'
+			)) ;
 			
-			try {
-				$response = curl_exec($ch);
-
-				$header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-				$header = substr($response, 0, $header_size);
-				$body = substr($response, $header_size);
-
-				if (FALSE === $response)
-					throw new \Exception(curl_error($ch), curl_errno($ch));
-				else
-				{
-					$userprofile = json_decode($body,true) ;
-					$this->persist['user'] = $userprofile ;
-				}
-			} catch(Exception $e) {
-				if ( $this->debug )
-				{
-					echo '<h3>$url</h3><pre>'.print_r($url,true).'</pre>' ;
-					echo '<h3>$POSTFIELDS</h3><pre>'.print_r($POSTFIELDS,true).'</pre>' ;
-					echo '<h3>$body</h3><pre>'.print_r($body,true).'</pre>' ;
-					echo '<h3>$header</h3><pre>'.print_r($header,true).'</pre>' ;
-				}
-				trigger_error(sprintf(
-					'Curl failed with error #%d: %s',
-					$e->getCode(), $e->getMessage()),
-					E_USER_ERROR);
+			if ( $result['code'] == 404 )
+				throw new \Exception('profile not found',404) ;
+			else
+			{
+				$userprofile = $result['array'] ;
+				$this->persist['user'] = $userprofile ;
 			}
 		}
 		return $userprofile ;
+	}
+
+	/**
+	 * Fun fact : c'est un des seuls services de l'API qui répond en texte brut et pas en json.
+	 * Fun fact 2 : la réponse est contenue entre guillements, donc "MODIFICATION_POSSIBLE" et non MODIFICATION_POSSIBLE
+	 * @param	int	$id	Identifiant d'un objet Apidae
+	 * @return	mixed	MODIFICATION_POSSIBLE|VERROUILLE|NON_DISPONIBLE si l'object existe
+	 * 					false si l'objet n'existe pas
+	 */
+	public function getUserPermissionOnObject($id) {
+
+		if ( ! $this->connected() ) return false ;
+
+		$response = false ;
+
+		$result = $this->request('/api/v002/sso/utilisateur/autorisation/objet-touristique/modification/'.$id,Array(
+			'token' => $this->persist['sso']['access_token']
+		)) ;
+
+		if ( $result['code'] == 200 )
+		{
+			return preg_replace('#"#','',$result['body']) ;
+		}
+		elseif ( $result['code'] == 404 )
+		{
+			return false ;
+		}
+		else
+			throw new ApidaeException('unexpected http code '.$result['code'].' returned :(') ;
 	}
 
 	/**
@@ -396,7 +259,7 @@ class ApidaeSso extends ApidaeCore {
 				}
 
 				.btn-sso {
-					background: rgb(223, 123, 123) ;
+					background: #5794E4 ;
 					color:white ;
 					font-size:.9em ;
 					padding-left:30px ;

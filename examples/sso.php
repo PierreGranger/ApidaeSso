@@ -20,7 +20,11 @@
     /* After an authentification, user is redirected to this page with a additional ?code=1234 in URL. We will use this code to get the token from SSO API */
     if ( isset($_GET['code']) && ! $ApidaeSso->connected() )
     {
-        $ApidaeSso->getSsoToken($_GET['code']) ;
+        try {
+            $ApidaeSso->getSsoToken($_GET['code']) ;
+        } catch ( Exception $e ) {
+            echo $e ;
+        }
     }
     
     if ( $ApidaeSso->connected() ) echo '<a href="?logout">Logout</a>' ;
@@ -32,4 +36,10 @@
 
     // Here we know we are connected.
 
-    echo '<pre>'.print_r($ApidaeSso->getUserProfile(),true).'</pre>' ;
+    try {
+        echo '<pre>' ;
+            print_r($ApidaeSso->getUserProfile(true)) ;
+        echo '</pre>' ;
+    } catch ( ApidaeException $e ) {
+        print_r($e) ;
+    }
