@@ -2,7 +2,7 @@
     "name": "pierre-granger/apidae-sso",
     "description": "Classe d'utilisation des API de SSO d'Apidae ",
     "require": {
-        "php": "^7.0",
+        "php": "^7.0|^8.0",
         "pierre-granger/apidae-core": "0.*"
     },
     "autoload": {
