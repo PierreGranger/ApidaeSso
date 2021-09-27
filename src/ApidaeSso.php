@@ -90,24 +90,22 @@ class ApidaeSso extends ApidaeCore
 	public function getSsoToken($code, $ssoRedirectUrl = null)
 	{
 
-		$result = $this->request('/oauth/token', array(
+		$result = $this->request('/oauth/token', [
 			'USERPWD' => $this->ssoClientId . ":" . $this->ssoSecret,
 			'POSTFIELDS' => "grant_type=authorization_code&code=" . $code . '&redirect_uri=' . urlencode($this->genRedirectUrl($ssoRedirectUrl)),
 			'format' => 'json'
-		));
+		]);
 
-		$token_sso = $result['array'];
-
-		if (!isset($token_sso['scope'])) {
-			throw new ApidaeException('no scope', ApidaeException::NO_SCOPE, array(
+		if (!isset($result['scope'])) {
+			throw new ApidaeException('no scope', ApidaeException::NO_SCOPE, [
 				'debug' => $this->debug,
-				'token_sso' => $token_sso
-			));
+				'result' => $result
+			]);
 		}
 
-		$this->persist['sso'] = $token_sso;
+		$this->persist['sso'] = $result;
 
-		return $token_sso;
+		return $result;
 	}
 
 	/**
@@ -122,24 +120,22 @@ class ApidaeSso extends ApidaeCore
 		if (!$this->connected())
 			throw new ApidaeException('NOT_CONNECTED', ApidaeException::NOT_CONNECTED);
 
-		$result = $this->request('/oauth/token', array(
+		$result = $this->request('/oauth/token', [
 			'USERPWD' => $this->ssoClientId . ":" . $this->ssoSecret,
 			'POSTFIELDS' => "grant_type=refresh_token&refresh_token=" . $this->persist['sso']['refresh_token'] . '&redirect_uri=' . urlencode($this->genRedirectUrl($ssoRedirectUrl)),
 			'format' => 'json'
-		));
-
-		$token_sso = $result['array'];
+		]);
 
 		if (!isset($token_sso['scope'])) {
-			throw new ApidaeException('no scope', ApidaeException::NO_SCOPE, array(
+			throw new ApidaeException('no scope', ApidaeException::NO_SCOPE, [
 				'debug' => $this->debug,
-				'token_sso' => $token_sso
-			));
+				'result' => $result
+			]);
 		}
 
-		$this->persist['sso'] = $token_sso;
+		$this->persist['sso'] = $result;
 
-		return $token_sso;
+		return $result;
 	}
 
 	/**
@@ -157,15 +153,15 @@ class ApidaeSso extends ApidaeCore
 		if (isset($this->persist['user']) && !$force)
 			$userprofile = $this->persist['user'];
 		else {
-			$result = $this->request('/api/v002/sso/utilisateur/profil', array(
+			$result = $this->request('/api/v002/sso/utilisateur/profil', [
 				'token' => $this->persist['sso']['access_token'],
 				'format' => 'json'
-			));
+			]);
 
 			if ($result['code'] == 404)
 				throw new \Exception('profile not found', 404);
 			else {
-				$userprofile = $result['array'];
+				$userprofile = $result;
 				$this->persist['user'] = $userprofile;
 			}
 		}
@@ -186,9 +182,9 @@ class ApidaeSso extends ApidaeCore
 
 		$response = false;
 
-		$result = $this->request('/api/v002/sso/utilisateur/autorisation/objet-touristique/modification/' . $id, array(
+		$result = $this->request('/api/v002/sso/utilisateur/autorisation/objet-touristique/modification/' . $id, [
 			'token' => $this->persist['sso']['access_token']
-		));
+		]);
 
 		if ($result['code'] == 200) {
 			return preg_replace('#"#', '', $result['body']);
