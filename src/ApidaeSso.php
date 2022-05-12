@@ -5,218 +5,232 @@ namespace PierreGranger;
 use PierreGranger\ApidaeException;
 
 /**
- * 
+ *
  * @author	Pierre Granger	<pierre@pierre-granger.fr>
- * 
+ *
  * @todo	Use $this->persist['sso']['refresh_token'] to extend the session
  * @todo	Use $this->persist['sso']['expires_in'] at login (getSsoToken) to detected when you need to use refresh_token
  * @todo	Implement http://dev.apidae-tourisme.com/fr/documentation-technique/v2/oauth/services-associes-au-sso/v002ssoutilisateurautorisationobjet-touristiquemodification
  */
 class ApidaeSso extends ApidaeCore
 {
+    protected $ssoClientId;
+    protected $ssoSecret;
 
-	protected $ssoClientId;
-	protected $ssoSecret;
+    protected $defaultSsoRedirectUrl;
 
-	protected $defaultSsoRedirectUrl;
+    /** */
+    protected $persist;
 
-	/** */
-	protected $persist;
+    public function __construct(array $params, &$persist)
+    {
+        parent::__construct($params);
 
-	public function __construct(array $params, &$persist)
-	{
+        if (!isset($params['ssoClientId'])) {
+            throw new ApidaeException('missing ssoClientId');
+        }
+        if (!preg_match('#^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$#', $params['ssoClientId'])) {
+            throw new \Exception('invalid ssoClientId');
+        }
+        $this->ssoClientId = $params['ssoClientId'];
 
-		parent::__construct($params);
+        if (!isset($params['ssoSecret'])) {
+            throw new ApidaeException(ApidaeException::MISSING_PARAMETER);
+        }
+        if (!preg_match('#^[a-zA-Z0-9]{1,20}$#', $params['ssoSecret'])) {
+            throw new ApidaeException(ApidaeException::INVALID_PARAMETER);
+        }
+        $this->ssoSecret = $params['ssoSecret'];
 
-		if (!isset($params['ssoClientId'])) throw new ApidaeException('missing ssoClientId');
-		if (!preg_match('#^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$#', $params['ssoClientId'])) throw new \Exception('invalid ssoClientId');
-		$this->ssoClientId = $params['ssoClientId'];
+        //if ( ! isset($params['defaultSsoRedirectUrl']) ) throw new \Exception('missing defaultSsoRedirectUrl') ;
+        if (isset($params['defaultSsoRedirectUrl'])) {
+            $this->defaultSsoRedirectUrl = $params['defaultSsoRedirectUrl'];
+        }
 
-		if (!isset($params['ssoSecret'])) throw new ApidaeException(ApidaeException::MISSING_PARAMETER);
-		if (!preg_match('#^[a-zA-Z0-9]{1,20}$#', $params['ssoSecret'])) throw new ApidaeException(ApidaeException::INVALID_PARAMETER);
-		$this->ssoSecret = $params['ssoSecret'];
+        if (isset($params['timeout']) && preg_match('#^[0-9]+$#', $params['timeout'])) {
+            $this->timeout = $params['timeout'];
+        }
 
-		//if ( ! isset($params['defaultSsoRedirectUrl']) ) throw new \Exception('missing defaultSsoRedirectUrl') ;
-		if (isset($params['defaultSsoRedirectUrl'])) $this->defaultSsoRedirectUrl = $params['defaultSsoRedirectUrl'];
+        $this->_config = $params;
 
-		if (isset($params['timeout']) && preg_match('#^[0-9]+$#', $params['timeout'])) $this->timeout = $params['timeout'];
+        $this->persist = &$persist;
+    }
 
-		$this->_config = $params;
+    /**
+     * Generate URL for link to auth form
+     *
+     * @param	$ssoRedirectUrl	URL to be redirected after auth. Can be null : URL will be generated from current url (see genRedirectUrl()).
+     */
+    public function getSsoUrl($ssoRedirectUrl = null)
+    {
+        return $this->url_base() . 'oauth/authorize/?response_type=code&client_id=' . $this->ssoClientId . '&scope=sso&redirect_uri=' . $this->genRedirectUrl($ssoRedirectUrl);
+    }
 
-		$this->persist = &$persist;
-	}
+    private function genRedirectUrl($ssoRedirectUrl = null)
+    {
+        if ($ssoRedirectUrl == null) {
+            if (isset($_SERVER) && isset($_SERVER['HTTP_HOST']) && isset($_SERVER['REQUEST_URI'])) {
+                $ssoRedirectUrl = 'http' . (isset($_SERVER['HTTPS']) ? 's' : '') . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+            } else {
+                $ssoRedirectUrl = $this->defaultSsoRedirectUrl;
+            }
+        }
 
-	/**
-	 * Generate URL for link to auth form
-	 * 
-	 * @param	$ssoRedirectUrl	URL to be redirected after auth. Can be null : URL will be generated from current url (see genRedirectUrl()).
-	 */
-	public function getSsoUrl($ssoRedirectUrl = null)
-	{
-		return $this->url_base() . '/oauth/authorize/?response_type=code&client_id=' . $this->ssoClientId . '&scope=sso&redirect_uri=' . $this->genRedirectUrl($ssoRedirectUrl);
-	}
+        if ($ssoRedirectUrl == null) {
+            throw new \Exception(__METHOD__ . ' : Unable to generate ssoRedirectUrl :(');
+        }
 
-	private function genRedirectUrl($ssoRedirectUrl = null)
-	{
+        $query = null;
+        $url = parse_url($ssoRedirectUrl);
 
-		if ($ssoRedirectUrl == null) {
-			if (isset($_SERVER) && isset($_SERVER['HTTP_HOST']) && isset($_SERVER['REQUEST_URI']))
-				$ssoRedirectUrl = 'http' . (isset($_SERVER['HTTPS']) ? 's' : '') . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-			else
-				$ssoRedirectUrl = $this->defaultSsoRedirectUrl;
-		}
+        if (isset($url['query'])) {
+            parse_str($url['query'], $query);
+            unset($query['code']); // Removing ?code=XYZ from current URL
+            unset($query['logout']); // Removing ?logout=1 from current URL
+        }
+        $ssoRedirectUrl = $url['scheme'] . '://' . $url['host'] . $url['path'] . ((is_array($query) && sizeof($query) > 0)  ? '?' . http_build_query($query) : '');
 
-		if ($ssoRedirectUrl == null) throw new \Exception(__METHOD__ . ' : Unable to generate ssoRedirectUrl :(');
+        return $ssoRedirectUrl;
+    }
 
-		$query = null;
-		$url = parse_url($ssoRedirectUrl);
+    /**
+     * After authentification user is redirected with an additional ?code=XZY Get parameter.
+     * We need to use it to get a token from SSO API
+     * @link	http://dev.apidae-tourisme.com/fr/documentation-technique/v2/oauth/single-sign-on
+     * @param	$code	code given in $_GET['code'] after the user login. User is redirected to $ssoRedirectUrl with this code.
+     */
+    public function getSsoToken($code, $ssoRedirectUrl = null)
+    {
+        $result = $this->request('/oauth/token', [
+            'USERPWD' => $this->ssoClientId . ":" . $this->ssoSecret,
+            'POSTFIELDS' => "grant_type=authorization_code&code=" . $code . '&redirect_uri=' . urlencode($this->genRedirectUrl($ssoRedirectUrl)),
+            'format' => 'json'
+        ]);
 
-		if (isset($url['query'])) {
-			parse_str($url['query'], $query);
-			unset($query['code']); // Removing ?code=XYZ from current URL
-			unset($query['logout']); // Removing ?logout=1 from current URL
-		}
-		$ssoRedirectUrl = $url['scheme'] . '://' . $url['host'] . $url['path'] . ((is_array($query) && sizeof($query) > 0)  ? '?' . http_build_query($query) : '');
+        if (!isset($result['scope'])) {
+            throw new ApidaeException('no scope', ApidaeException::NO_SCOPE, [
+                'debug' => $this->debug,
+                'result' => $result
+            ]);
+        }
 
-		return $ssoRedirectUrl;
-	}
+        $this->persist['sso'] = $result;
 
-	/**
-	 * After authentification user is redirected with an additional ?code=XZY Get parameter.
-	 * We need to use it to get a token from SSO API
-	 * @link	http://dev.apidae-tourisme.com/fr/documentation-technique/v2/oauth/single-sign-on
-	 * @param	$code	code given in $_GET['code'] after the user login. User is redirected to $ssoRedirectUrl with this code.
-	 */
-	public function getSsoToken($code, $ssoRedirectUrl = null)
-	{
+        return $result;
+    }
 
-		$result = $this->request('/oauth/token', [
-			'USERPWD' => $this->ssoClientId . ":" . $this->ssoSecret,
-			'POSTFIELDS' => "grant_type=authorization_code&code=" . $code . '&redirect_uri=' . urlencode($this->genRedirectUrl($ssoRedirectUrl)),
-			'format' => 'json'
-		]);
+    /**
+     * After authentification user is redirected with an additional ?code=XZY Get parameter.
+     * We need to use it to get a token from SSO API
+     * @link	http://dev.apidae-tourisme.com/fr/documentation-technique/v2/oauth/single-sign-on
+     * @param	$code	code given in $_GET['code'] after the user login. User is redirected to $ssoRedirectUrl with this code.
+     */
+    public function refreshSsoToken($ssoRedirectUrl = null)
+    {
+        if (!$this->connected()) {
+            throw new ApidaeException('NOT_CONNECTED', ApidaeException::NOT_CONNECTED);
+        }
 
-		if (!isset($result['scope'])) {
-			throw new ApidaeException('no scope', ApidaeException::NO_SCOPE, [
-				'debug' => $this->debug,
-				'result' => $result
-			]);
-		}
+        $result = $this->request('/oauth/token', [
+            'USERPWD' => $this->ssoClientId . ":" . $this->ssoSecret,
+            'POSTFIELDS' => "grant_type=refresh_token&refresh_token=" . $this->persist['sso']['refresh_token'] . '&redirect_uri=' . urlencode($this->genRedirectUrl($ssoRedirectUrl)),
+            'format' => 'json'
+        ]);
 
-		$this->persist['sso'] = $result;
+        if (!isset($token_sso['scope'])) {
+            throw new ApidaeException('no scope', ApidaeException::NO_SCOPE, [
+                'debug' => $this->debug,
+                'result' => $result
+            ]);
+        }
 
-		return $result;
-	}
+        $this->persist['sso'] = $result;
 
-	/**
-	 * After authentification user is redirected with an additional ?code=XZY Get parameter.
-	 * We need to use it to get a token from SSO API
-	 * @link	http://dev.apidae-tourisme.com/fr/documentation-technique/v2/oauth/single-sign-on
-	 * @param	$code	code given in $_GET['code'] after the user login. User is redirected to $ssoRedirectUrl with this code.
-	 */
-	public function refreshSsoToken($ssoRedirectUrl = null)
-	{
+        return $result;
+    }
 
-		if (!$this->connected())
-			throw new ApidaeException('NOT_CONNECTED', ApidaeException::NOT_CONNECTED);
+    /**
+     * get connected user profil as an array.
+     * @link	http://dev.apidae-tourisme.com/fr/documentation-technique/v2/oauth/services-associes-au-sso/v002ssoutilisateurprofil
+     * @param	boolean	$force	Force refresh, default false.
+     */
+    public function getUserProfile($force = false)
+    {
+        if (!$this->connected()) {
+            return false;
+        }
 
-		$result = $this->request('/oauth/token', [
-			'USERPWD' => $this->ssoClientId . ":" . $this->ssoSecret,
-			'POSTFIELDS' => "grant_type=refresh_token&refresh_token=" . $this->persist['sso']['refresh_token'] . '&redirect_uri=' . urlencode($this->genRedirectUrl($ssoRedirectUrl)),
-			'format' => 'json'
-		]);
+        $userprofile = false;
 
-		if (!isset($token_sso['scope'])) {
-			throw new ApidaeException('no scope', ApidaeException::NO_SCOPE, [
-				'debug' => $this->debug,
-				'result' => $result
-			]);
-		}
+        if (isset($this->persist['user']) && !$force) {
+            $userprofile = $this->persist['user'];
+        } else {
+            $result = $this->request('/api/v002/sso/utilisateur/profil', [
+                'token' => $this->persist['sso']['access_token'],
+                'format' => 'json'
+            ]);
 
-		$this->persist['sso'] = $result;
+            if ($result['code'] == 404) {
+                throw new \Exception('profile not found', 404);
+            } else {
+                $userprofile = $result;
+                $this->persist['user'] = $userprofile;
+            }
+        }
+        return $userprofile;
+    }
 
-		return $result;
-	}
+    /**
+     * Fun fact : c'est un des seuls services de l'API qui répond en texte brut et pas en json.
+     * Fun fact 2 : la réponse est contenue entre guillements, donc "MODIFICATION_POSSIBLE" et non MODIFICATION_POSSIBLE
+     * @param	int	$id	Identifiant d'un objet Apidae
+     * @return	mixed	MODIFICATION_POSSIBLE|VERROUILLE|NON_DISPONIBLE si l'object existe
+     * 					false si l'objet n'existe pas
+     */
+    public function getUserPermissionOnObject($id)
+    {
+        if (!$this->connected()) {
+            return false;
+        }
 
-	/**
-	 * get connected user profil as an array.
-	 * @link	http://dev.apidae-tourisme.com/fr/documentation-technique/v2/oauth/services-associes-au-sso/v002ssoutilisateurprofil
-	 * @param	boolean	$force	Force refresh, default false. 
-	 */
-	public function getUserProfile($force = false)
-	{
+        $response = false;
 
-		if (!$this->connected()) return false;
+        $result = $this->request('/api/v002/sso/utilisateur/autorisation/objet-touristique/modification/' . $id, [
+            'token' => $this->persist['sso']['access_token']
+        ]);
 
-		$userprofile = false;
+        if ($result['code'] == 200) {
+            return preg_replace('#"#', '', $result['body']);
+        } elseif ($result['code'] == 404) {
+            return false;
+        } else {
+            throw new ApidaeException('unexpected http code ' . $result['code'] . ' returned :(');
+        }
+    }
 
-		if (isset($this->persist['user']) && !$force)
-			$userprofile = $this->persist['user'];
-		else {
-			$result = $this->request('/api/v002/sso/utilisateur/profil', [
-				'token' => $this->persist['sso']['access_token'],
-				'format' => 'json'
-			]);
+    /**
+     *
+     */
+    public function logout()
+    {
+        foreach ($this->persist as $k => $v) {
+            unset($this->persist[$k]);
+        }
+    }
 
-			if ($result['code'] == 404)
-				throw new \Exception('profile not found', 404);
-			else {
-				$userprofile = $result;
-				$this->persist['user'] = $userprofile;
-			}
-		}
-		return $userprofile;
-	}
+    /**
+     * Is the current user connected ?
+     * @return	bool	clear enough
+     */
+    public function connected()
+    {
+        return isset($this->persist['sso']);
+    }
 
-	/**
-	 * Fun fact : c'est un des seuls services de l'API qui répond en texte brut et pas en json.
-	 * Fun fact 2 : la réponse est contenue entre guillements, donc "MODIFICATION_POSSIBLE" et non MODIFICATION_POSSIBLE
-	 * @param	int	$id	Identifiant d'un objet Apidae
-	 * @return	mixed	MODIFICATION_POSSIBLE|VERROUILLE|NON_DISPONIBLE si l'object existe
-	 * 					false si l'objet n'existe pas
-	 */
-	public function getUserPermissionOnObject($id)
-	{
-
-		if (!$this->connected()) return false;
-
-		$response = false;
-
-		$result = $this->request('/api/v002/sso/utilisateur/autorisation/objet-touristique/modification/' . $id, [
-			'token' => $this->persist['sso']['access_token']
-		]);
-
-		if ($result['code'] == 200) {
-			return preg_replace('#"#', '', $result['body']);
-		} elseif ($result['code'] == 404) {
-			return false;
-		} else
-			throw new ApidaeException('unexpected http code ' . $result['code'] . ' returned :(');
-	}
-
-	/**
-	 * 
-	 */
-	public function logout()
-	{
-		foreach ($this->persist as $k => $v)
-			unset($this->persist[$k]);
-	}
-
-	/**
-	 * Is the current user connected ?
-	 * @return	bool	clear enough
-	 */
-	public function connected()
-	{
-		return isset($this->persist['sso']);
-	}
-
-	public function form($title = 'Authentification')
-	{
-
-		$html = null;
-		$html .= '
+    public function form($title = 'Authentification')
+    {
+        $html = null;
+        $html .= '
 		<!doctype html>
 		<html lang="en">
 		<head>
@@ -284,6 +298,6 @@ class ApidaeSso extends ApidaeCore
 			
 		</body>
 		</html>';
-		return $html;
-	}
+        return $html;
+    }
 }
