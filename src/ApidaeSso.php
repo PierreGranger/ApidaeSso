@@ -63,7 +63,7 @@ class ApidaeSso extends ApidaeCore
      */
     public function getSsoUrl($ssoRedirectUrl = null)
     {
-        return $this->url_base() . 'oauth/authorize/?response_type=code&client_id=' . $this->ssoClientId . '&scope=sso&redirect_uri=' . $this->genRedirectUrl($ssoRedirectUrl);
+        return $this->url_base() . 'oauth/authorize/?response_type=code&client_id=' . $this->ssoClientId . '&scope=sso&redirect_uri=' . urlencode($this->genRedirectUrl($ssoRedirectUrl));
     }
 
     private function genRedirectUrl($ssoRedirectUrl = null)
@@ -88,7 +88,7 @@ class ApidaeSso extends ApidaeCore
             unset($query['code']); // Removing ?code=XYZ from current URL
             unset($query['logout']); // Removing ?logout=1 from current URL
         }
-        $ssoRedirectUrl = $url['scheme'] . '://' . $url['host'] . $url['path'] . ((is_array($query) && sizeof($query) > 0)  ? '?' . http_build_query($query) : '');
+        $ssoRedirectUrl = $url['scheme'] . '://' . $url['host'] . $url['path'] . ((is_array($query) && sizeof($query) > 0) ? '?' . http_build_query($query) : '');
 
         return $ssoRedirectUrl;
     }
@@ -229,6 +229,7 @@ class ApidaeSso extends ApidaeCore
 
     public function form($title = 'Authentification')
     {
+        $assetsPath = 'https://raw.githubusercontent.com/PierreGranger/ApidaeCore/master/assets/' ;
         $html = null;
         $html .= '
 		<!doctype html>
@@ -237,20 +238,22 @@ class ApidaeSso extends ApidaeCore
 			<meta charset="utf-8">
 			<meta name="viewport" content="width=device-width, initial-scale=1">
 			<title>' . htmlentities($title) . '</title>
+            <link href="'.$assetsPath.'fonts/fonts.css" rel="stylesheet" crossorigin="anonymous">
 			<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
-			<link rel="icon" href="https://raw.githubusercontent.com/PierreGranger/ApidaeCore/master/assets/cropped-favicon-50x50.png" sizes="32x32" />
-			<link rel="icon" href="https://raw.githubusercontent.com/PierreGranger/ApidaeCore/master/assets/cropped-favicon-300x300.png" sizes="192x192" />
-			<link rel="apple-touch-icon-precomposed" href="https://raw.githubusercontent.com/PierreGranger/ApidaeCore/master/assets/cropped-favicon-300x300.png" />
-			<meta name="msapplication-TileImage" content="https://raw.githubusercontent.com/PierreGranger/ApidaeCore/master/assets/cropped-favicon-300x300.png" />
-			<link rel="preconnect" href="https://fonts.gstatic.com">
-			<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300&display=swap" rel="stylesheet">
+			<link rel="icon" href="'.$assetsPath.'favicon-16x16.png" sizes="16x16" />
+            <link rel="icon" href="'.$assetsPath.'favicon-32x32.png" sizes="32x32" />
+			<link rel="icon" href="'.$assetsPath.'favicon.svg" />
+			<link rel="apple-touch-icon-precomposed" href="'.$assetsPath.'favicon.svg" />
+			<meta name="msapplication-TileImage" content="'.$assetsPath.'favicon.svg" />
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Niramit&display=swap" rel="stylesheet">
 
 			<style>
 				
 				html,
 				body {
 					height: 100%;
-					font-family:"Open Sans" ;
+					font-family:"Niramit", sans-serif ;
 				}
 				
 				body {
@@ -258,7 +261,7 @@ class ApidaeSso extends ApidaeCore
 					align-items: center;
 					padding-top: 40px;
 					padding-bottom: 40px;
-					background-color: #eeeeee;
+					background-color: #FAF8F2;
 				}
 				
 				.form-signin {
@@ -271,7 +274,7 @@ class ApidaeSso extends ApidaeCore
 				}
 
 				.btn-sso {
-					background: #5794E4 ;
+					background: #0287c9 ;
 					color:white ;
 					font-size:.9em ;
 					padding-left:30px ;
@@ -288,9 +291,9 @@ class ApidaeSso extends ApidaeCore
 			
 		<main class="form-signin">
 		<form>
-			<img class="mb-4" src="https://raw.githubusercontent.com/PierreGranger/ApidaeCore/master/assets/apidae_logotype_rvb.png" alt="" width="50%" />
+			<img class="mb-4" src="'.$assetsPath.'apidae_logotype_rvb.png" alt="" width="50%" />
 			<h1 class="h3 mb-3 fw-normal">' . htmlentities($title) . '</h1>
-			<a href="' . $this->getSsoUrl() . '" class="btn btn-sso" type="submit"><img src="https://raw.githubusercontent.com/PierreGranger/ApidaeCore/master/assets/cropped-favicon-50x50.png" width="20" alt="" /> Se connecter avec mon compte utilisateur Apidae</a>
+			<a href="' . $this->getSsoUrl() . '" class="btn btn-sso" type="submit">Se connecter avec mon compte utilisateur Apidae</a>
 		</form>
 		</main>
 
